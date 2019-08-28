@@ -5,6 +5,7 @@
 #include <algorithm>
 #include <unordered_set>
 #include <set>
+#include <assert.h>
 #include "lattice.h"
 #include "site.h"
 #include "GSLpp/vector.h"
@@ -83,6 +84,9 @@ void Crystal_t<dim>::set_Rn(const double Rmax)
 	for(size_t i = 0; i < dim; i++){
 		for(n[i] = -N[i]; n[i] <= N[i]; n[i]++){
 			// Add ni * ai to the list of vectors
+			if(n[i] == 0){
+				continue;
+			}
 			R_m.push_back(a*n);
 			// add ni*ai to all the vectors already found
 			for(GSL::Vector v : R_m){
@@ -150,12 +154,92 @@ std::vector<Neighbours<dim>> Crystal_t<dim>::calc_nearest_neighbours()
 	return res;
 }
 
-template<>
-std::vector<Neighbours<3>> Crystal_t<3>::calc_nearest_neighbours(const size_t n_steps)
+template<size_t dim>
+std::vector<Neighbours<dim>> Crystal_t<dim>:: calc_nearest_neighbours(const size_t n_steps)
 {
-	return this->calc_nearest_neighbours();
-}
+	std::vector<Neighbours<dim>> res(sites_m.size());
+	std::unordered_set<Site_t<dim>, Site_t_hasher<dim>> unique_maker;
+	std::array<size_t, dim> stop, current, new_coords, flips, flip_stop({2,0});
+	stop.fill(n_steps);
+	bool periodic = (R_m.size() != 0), add;
 
+	GSL::Matrix a = lat_m.lat();
+	GSL::Vector R, rp, zerov(dim);
+	for(size_t i = 0; i < sites().size(); i++){
+		current.fill(0);
+		while(current != stop){
+			// Start by incrementing current
+			current.back()++;
+			for(auto tmp = ++current.rbegin(), tmp_stop = ++stop.rbegin(); tmp != current.rend(); tmp++, tmp_stop++){
+				if(*(tmp - 1) > *(tmp_stop - 1)){
+					(*tmp)++;
+					*(tmp - 1) = 0;
+				}
+			}
+
+			flips.fill(0);
+			while(flips != flip_stop){
+				R.copy(zerov);
+				add = false;
+				for(size_t j = 0; j < dim; j++){
+					new_coords[j] = sites_m[i].coord()[j];
+					if(current[j] == 0){
+						continue;
+					}
+					if(flips[j] == 0){
+						if(periodic){
+							new_coords[j] = (sites_m[i].coord()[j] + current[j]) % size_m[j];
+							R += (sites_m[i].coord()[j] + current[j]) / size_m[j] * a[j];
+							add = true;
+						}else if(sites_m[i].coord()[j] + current[j] < size_m[j]){
+							new_coords[j] = sites_m[i].coord()[j] + current[j];
+							add = true;
+						}
+					}else{
+						if(periodic){
+							new_coords[j] = ((current[j]/size_m[j] + 1)*size_m[j] + sites_m[i].coord()[j] - current[j]) % size_m[j];
+							R -= (current[j]/size_m[j] + 1 - (((current[j]/size_m[j] + 1)*size_m[j] + sites_m[i].coord()[j] - current[j])/size_m[j]))*a[j];
+							add = true;
+						}else if(sites_m[i].coord()[j] >= current[j]){
+							new_coords[j] = sites_m[i].coord()[j] - current[j];
+							add = true;
+						}
+					}
+				}
+				if(i == 0){
+					std::cout << "\n";
+				}
+				if(add){
+					std::cout << "Site " << i;
+					std::cout << " step ";
+					for(auto val : current){
+						std::cout << val << " ";
+					}
+					std::cout << "\n";
+					std::cout << "R = " << R << "\n";
+					Site_t<dim> tmp(new_coords, zerov, size_m);
+					rp = sites_m[tmp.index()].pos();
+					tmp.set_pos(rp + R - sites_m[i].pos());
+					res[i].push_back(tmp);
+				}
+
+				flips.back()++;
+				for(size_t idx = dim - 1; idx > 0; idx--){
+					if(flips[idx] > 1){
+						flips[idx - 1]++;
+						flips[idx] = 0;
+					}
+				}
+			}
+		}
+		unique_maker = std::unordered_set<Site_t<dim>, Site_t_hasher<dim>> (res[i].begin(), res[i].end());
+		res[i].assign(unique_maker.begin(), unique_maker.end());
+		std::sort(res[i].begin(), res[i].end(), comp_norm_site<dim>);
+
+	}
+	return res;
+}
+/*
 template<>
 std::vector<Neighbours<2>> Crystal_t<2>::calc_nearest_neighbours(const size_t n_steps)
 {
@@ -259,6 +343,7 @@ std::vector<Neighbours<2>> Crystal_t<2>::calc_nearest_neighbours(const size_t n_
 	}
 	return res;
 }
+*/
 
 template<size_t dim>
 std::vector<std::vector<Neighbours<dim>>> Crystal_t<dim>::determine_nn_shells(const std::vector<Neighbours<dim>>& nn)
@@ -283,6 +368,21 @@ std::vector<std::vector<Neighbours<dim>>> Crystal_t<dim>::determine_nn_shells(co
 		}
 	}
 
+	size_t i = 0, j = 0;
+	for(auto site : res){
+		std::cout << "Site " << i;
+		j = 0;
+		for(auto n : site){
+			std::cout << "\n\tshell " << j << "\n\t\t";
+			for(auto v : n){
+				std::cout << v.index() << " : " << v.pos() << " ";
+			}
+			std::cout << "\n";
+			j++;
+		}
+		i++;
+	}
 	return res;
 }
+
 #endif //CRYSTAL_H

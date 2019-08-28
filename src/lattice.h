@@ -14,11 +14,8 @@ private:
 public:
     Lattice_t() : lat_m{}, recip_lat_m{}, scale_m{} {};
     Lattice_t(const M& mat)
-	    : lat_m(mat), recip_lat_m(), scale_m(mat[0].template norm<double>())
-    {
-	    lat_m *= 1./scale_m;
-	    recip_lat_m = 2*M_PI*lat_m.inverse();
-    }
+	    : lat_m(1./mat[0].template norm<double>() * mat), recip_lat_m(2*M_PI/mat[0].template norm<double>() * mat.inverse()), scale_m(mat[0].template norm<double>())
+    {}
 
 
     T scale() const {return scale_m;}

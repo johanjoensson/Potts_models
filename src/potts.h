@@ -217,7 +217,7 @@ class Potts_t{
 			setup_crystal();
 			setup_crystal_sites();
 			setup_crystal_lattice_vectors(periodic);
-			setup_nearest_neighbour_shells(2);
+			setup_nearest_neighbour_shells(1);
 		}
 
 		void set_interaction_parameters(const std::vector<double>& J)

@@ -159,17 +159,17 @@ int main()
 	GSL::Error_handler e_handler;
 	e_handler.off();
 
-	size_t width = 100, height = 100;
+	size_t width = 5, height = 5;
 	Lattice_t<2> lat{{{static_cast<double>(width), 0},
 		{0, static_cast<double>(height)}}};
-	Potts_t<2, 3> potts(lat, {width, height}, true);
-	potts.set_beta(.5);
+	Potts_t<2, 4> potts(lat, {width, height}, true);
+	potts.set_beta(10);
+
 
 	// One interaction parameter per nearest neighbour shell to consider
 	potts.set_interaction_parameters({2.0});
 
 	std::tuple<double, int, double, double> corr;
-
 
 	std::cout << "Iterations start\n";
 	size_t num_iterations = width*height;
@@ -179,17 +179,16 @@ int main()
 			std::cout << "Iteration " << it << ", out of " << num_iterations <<"\n";
 			std::cout << "\tAverage energy = " << potts.average_site_energy() << "\n";
 			std::cout << "\tMagnetization = " << potts.magnetization() << "\n";
-			std::cout << "spin-spin correlators  " <<  potts.measure_spin_correlators().size();
 			std::cout << "\n";
 
-			bitmap_print(create_bitmap_data(potts.field(), {width, height}, 3),
-				"Ising-" + std::to_string((10*it)/num_iterations) + ".bmp", {width, height});
+			bitmap_print(create_bitmap_data(potts.field(), {width, height}, 4),
+				"Potts-" + std::to_string((10*it)/num_iterations) + ".bmp", {width, height});
 		}
 	}
 
 	std::cout << "Average energy = " << potts.average_site_energy() << "\n";
 	std::cout << "Magnetization = " << potts.magnetization() << "\n";
-	bitmap_print(create_bitmap_data(potts.field(), {width, height}, 3), "Final.bmp", {width, height});
+	bitmap_print(create_bitmap_data(potts.field(), {width, height}, 4), "Final.bmp", {width, height});
 
 	return 0;
 }
